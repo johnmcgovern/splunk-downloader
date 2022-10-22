@@ -36,9 +36,10 @@ use_sampling = False
 
 # Splunk: Query Configuration
 # splunk_query = 'search index=summary_cisbot sourcetype=stash signal=*'
-splunk_query = 'search index=_internal sourcetype=splunkd | head 100'
+splunk_query = 'search index=_internal sourcetype=splunkd | head 1000'
 
 # Number of multiprocessing jobs (threads) allowed to run simultaneously.
+# Default Splunk per-user concurrency limit is 50.
 job_count = 20
 
 
@@ -94,7 +95,6 @@ def worker(dt):
     # Splunk earliest/latest query time calulation
     earliest = dt.strftime(splunk_time_format)
     latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ms')).strftime(splunk_time_format)
-    # print("\net/lt:", dt,ts, key)
     
     # Splunk API Query Export Call
     try:
@@ -104,26 +104,16 @@ def worker(dt):
     
     # Parse search results
     raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
-    search_results = [r['result'] for r in raw_list if r['preview']==False]
-
 
     # Store the search results in a pandas data frame (2D size-mutable table)
-    df = pd.DataFrame(search_results)
-    # "Return a tuple representing the dimensionality of the DataFrame."
-    # print('results:',df.shape)
+    df = pd.DataFrame([r['result'] for r in raw_list if r['preview']==False])
 
     # Initialize empty StringIO object and store dataframe as JSON object in it.
     json_buffer = StringIO()
     df.to_json(json_buffer)
 
     # Store the StringIO file ojbect in S3.
-    #print(s3_resource.Object(s3_bucket, key).put(Body=json_buffer.getvalue()))
     s3_resource.Object(s3_bucket, key).put(Body=json_buffer.getvalue())
-
-    # Reset our data structures.
-    df = None
-    raw_list = None
-    json_buffer = None
 
     print("Job", dt, "Complete")
 
@@ -137,8 +127,7 @@ timer_start = time.time()
 result = Parallel(n_jobs=job_count, prefer="threads")(delayed(worker)(dt) for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_freq))
 
 timer_end = time.time()
-timer_duration = timer_end - timer_start
 
-print('\n\nTime Elapsed (Seconds):', timer_duration)
+print('\n\nTime Elapsed (Seconds):', timer_end - timer_start)
 print('\n\n== Done ==')
 

@@ -125,6 +125,7 @@ for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_
     # Reset our data structures.
     df = None
     raw_list = None
+    search_results = None
     json_buffer = None
 
 timer_end = time.time()
