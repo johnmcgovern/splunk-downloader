@@ -9,9 +9,11 @@ import json
 import pandas as pd
 import time
 
-from io import StringIO
-
 import splunklib.client as spclient
+
+from io import StringIO
+from joblib import Parallel, delayed
+
 
 
 # AWS: Output Configuration
@@ -37,18 +39,22 @@ use_sampling = False
 
 # Splunk: Query Configuration
 # splunk_query = 'search index=summary_cisbot sourcetype=stash signal=*'
-splunk_query = 'search index=_internal sourcetype=splunkd | head 1000'
+splunk_query = 'search index=_internal sourcetype=splunkd | head 100'
 
 # Sampling Logic:
-# for high data volumes, 
-#     shorten the frequency (more files, smaler size)
-#     use sampling (smaller size, incomplete data)
+# For high data volumes: 
+#     Shorten the frequency (more files, smaler size).
+#     Use sampling (smaller size, incomplete data).
 if use_sampling:
     file_name_template = 'bot_signal_raw_<ts>_<freq>_sampled_<ratio>.json'
     sample_ratio=2
 if not use_sampling:
     file_name_template = 'bot_signal_raw_<ts>_<freq>.json'
     sample_ratio=1
+
+
+# Number of multiprocessing jobs (threads) allowed to run simultaneously.
+job_count = 20
 
 
 # AWS Simple Systems Manager / BOTO Session Setup
@@ -72,11 +78,7 @@ service = spclient.connect(host=HOST,port=PORT,token=splunk_token)
 
 
 
-# 
-# Main data export loop
-#
-timer_start = time.time()
-for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_freq):
+def worker(dt):
 
     # Construct the filename with timestamp, frequency, and sampling ratio.
     ts = dt.strftime('%Y%m%d%H%M')  # timestamp
@@ -85,24 +87,23 @@ for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_
         filename = filename.replace('<ratio>',str(sample_ratio))
     
     # Check if file exists in S3, if yes print message and move on.
+    # Note: Currently this script overwrites existing files.
     key = s3_base_key + f'{dt.year}/{dt.month:02d}/{dt.day:02d}/'+filename
     result = s3_client.list_objects_v2(Bucket=s3_bucket, Prefix=key)
     if 'Contents' in result:
         fsize = result['Contents'][0]['Size']
         print(f'{key} exists and is {fsize} bytes.')
-        continue
 
     # Splunk earliest/latest query time calulation
     earliest = dt.strftime(splunk_time_format)
     latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ms')).strftime(splunk_time_format)
-    print("\net/lt:", dt,ts, key)
+    # print("\net/lt:", dt,ts, key)
     
-    # Splunk API call
+    # Splunk API Query Export Call
     try:
         rr = service.jobs.export(query=splunk_query, earliest_time=earliest, latest_time=latest, output_mode="json", sample_ratio=sample_ratio)
     except Exception as e:
         print('ERROR ' + str(e))
-        continue
     
     # Parse search results
     raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
@@ -112,20 +113,30 @@ for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_
     # Store the search results in a pandas data frame (2D size-mutable table)
     df = pd.DataFrame(search_results)
     # "Return a tuple representing the dimensionality of the DataFrame."
-    print('results:',df.shape)
+    # print('results:',df.shape)
 
     # Initialize empty StringIO object and store dataframe as JSON object in it.
     json_buffer = StringIO()
     df.to_json(json_buffer)
 
     # Store the StringIO file ojbect in S3.
-    print(s3_resource.Object(s3_bucket, key).put(Body=json_buffer.getvalue()))
-    
+    #print(s3_resource.Object(s3_bucket, key).put(Body=json_buffer.getvalue()))
+    s3_resource.Object(s3_bucket, key).put(Body=json_buffer.getvalue())
 
     # Reset our data structures.
     df = None
     raw_list = None
     json_buffer = None
+
+    print("Job", dt, "Complete")
+
+
+# 
+# Main Multiprocessing Loop with Timer
+#
+timer_start = time.time()
+
+result = Parallel(n_jobs=job_count, prefer="threads")(delayed(worker)(dt) for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_freq))
 
 timer_end = time.time()
 timer_duration = timer_end - timer_start
