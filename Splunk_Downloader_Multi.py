@@ -21,13 +21,11 @@ s3_bucket = 'splunk-export-to-s3'
 s3_base_key = 'inbox/bot_signal_raw/'
 aws_region_name = 'us-west-2'
 
-
 # Splunk: API Configuration
 splunk_api_token_name = 'splunk_api_token'
 HOST = 'es.splk.me'
 PORT = 8089
 splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
-
 
 # Splunk: Time Range Configuration
 start_time_str = '2022-10-21 00:00'
@@ -36,10 +34,13 @@ range_periods = 60  # Number of time periods to generate.
 range_freq = '1min'  # Date/time period length for each exported file.
 use_sampling = False
 
-
 # Splunk: Query Configuration
 # splunk_query = 'search index=summary_cisbot sourcetype=stash signal=*'
 splunk_query = 'search index=_internal sourcetype=splunkd | head 100'
+
+# Number of multiprocessing jobs (threads) allowed to run simultaneously.
+job_count = 20
+
 
 # Sampling Logic:
 # For high data volumes: 
@@ -51,10 +52,6 @@ if use_sampling:
 if not use_sampling:
     file_name_template = 'bot_signal_raw_<ts>_<freq>.json'
     sample_ratio=1
-
-
-# Number of multiprocessing jobs (threads) allowed to run simultaneously.
-job_count = 20
 
 
 # AWS Simple Systems Manager / BOTO Session Setup
@@ -129,6 +126,7 @@ def worker(dt):
     json_buffer = None
 
     print("Job", dt, "Complete")
+
 
 
 # 
