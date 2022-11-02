@@ -31,7 +31,7 @@ splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
 start_time_str = '2022-10-21 00:00'
 start_time_region = 'us/pacific' #'utc'
 range_periods = 60  # Number of time periods to generate.
-range_freq = '1min'  # Date/time period length for each exported file.
+range_freq = '1min'  # Date/time period length for each exported file. #5min #1H
 use_sampling = False
 
 
@@ -59,6 +59,8 @@ s3_client = aws.client('s3')
 
 
 # Splunk SDK Session setup w/ SSM Params
+# Comment out the line below and set splunk_token directly to
+#  avoid using AWS SSM.
 splunk_param = ssm.get_parameter(Name=splunk_api_token_name, WithDecryption=True)
 splunk_token = splunk_param['Parameter']['Value']
 
