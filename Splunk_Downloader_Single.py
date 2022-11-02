@@ -37,7 +37,7 @@ use_sampling = False
 
 # Splunk: Query Configuration
 # splunk_query = 'search index=summary_cisbot sourcetype=stash signal=*'
-splunk_query = 'search index=_internal sourcetype=splunkd | head 1000'
+splunk_query = 'search index=_internal sourcetype=splunkd | head 10'
 
 # Sampling Logic:
 # for high data volumes, 
