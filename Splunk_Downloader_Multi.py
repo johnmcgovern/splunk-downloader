@@ -26,7 +26,7 @@ splunk_api_token_name = 'splunk_api_token'
 HOST = 'es.splk.me'
 PORT = 8089
 splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
-max_count = 12345678  # max_results to be returned from the Splunk API
+max_count = 12345678  # Maximum number of events allowed to be returned from the Splunk API
 
 # Splunk: Time Range Configuration
 start_time_str = '2022-10-21 00:00'
