@@ -102,7 +102,16 @@ def worker(dt):
     
     # Splunk API Query Export Call
     try:
-        rr = service.jobs.export(query=splunk_query, earliest_time=earliest, latest_time=latest, output_mode="json", sample_ratio=sample_ratio, max_count=max_count, timeout=timeout)
+        rr = service.jobs.export(
+            query=splunk_query, 
+            earliest_time=earliest, 
+            latest_time=latest, 
+            output_mode="json", 
+            sample_ratio=sample_ratio, 
+            max_count=max_count, 
+            timeout=timeout
+            )
+            
     except Exception as e:
         print('ERROR ' + str(e))
     

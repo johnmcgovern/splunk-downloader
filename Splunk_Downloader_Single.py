@@ -102,7 +102,16 @@ for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_
     
     # Splunk API call
     try:
-        rr = service.jobs.export(query=splunk_query, earliest_time=earliest, latest_time=latest, output_mode="json", sample_ratio=sample_ratio, max_count=max_count, timeout=1234)
+        rr = service.jobs.export(
+            query=splunk_query, 
+            earliest_time=earliest, 
+            latest_time=latest, 
+            output_mode="json", 
+            sample_ratio=sample_ratio, 
+            max_count=max_count, 
+            timeout=timeout
+            )
+
     except Exception as e:
         print('ERROR ' + str(e))
         continue
