@@ -31,7 +31,7 @@ splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
 start_time_str = '2022-10-21 00:00'
 start_time_region = 'us/pacific' #'utc'
 range_periods = 1  # Number of time periods to generate.
-range_freq = '1h'  # Date/time period length for each exported file. #5min #1H
+range_freq = '1d'  # Date/time period length for each exported file. #5min #1h
 use_sampling = False
 
 # Splunk: Query Configuration
