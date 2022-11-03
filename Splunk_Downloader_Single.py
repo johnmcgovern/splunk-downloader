@@ -25,19 +25,19 @@ splunk_api_token_name = 'splunk_api_token'
 HOST = 'es.splk.me'
 PORT = 8089
 splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
-
+max_count = 12345678  # max_results to be returned from the Splunk API
 
 # Splunk: Time Range Configuration
 start_time_str = '2022-10-21 00:00'
 start_time_region = 'us/pacific' #'utc'
-range_periods = 60  # Number of time periods to generate.
-range_freq = '1min'  # Date/time period length for each exported file. #5min #1h
+range_periods = 10  # Number of time periods to generate.
+range_freq = '1h'  # Date/time period length for each exported file. #5min #1h #1d
 use_sampling = False
 
 
 # Splunk: Query Configuration
 # splunk_query = 'search index=summary_cisbot sourcetype=stash signal=*'
-splunk_query = 'search index=_internal sourcetype=splunkd | head 10'
+splunk_query = 'search index=_internal sourcetype=splunkd'
 
 # Sampling Logic:
 # for high data volumes, 
@@ -101,7 +101,7 @@ for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_
     
     # Splunk API call
     try:
-        rr = service.jobs.export(query=splunk_query, earliest_time=earliest, latest_time=latest, output_mode="json", sample_ratio=sample_ratio)
+        rr = service.jobs.export(query=splunk_query, earliest_time=earliest, latest_time=latest, output_mode="json", sample_ratio=sample_ratio, max_count=max_count)
     except Exception as e:
         print('ERROR ' + str(e))
         continue
