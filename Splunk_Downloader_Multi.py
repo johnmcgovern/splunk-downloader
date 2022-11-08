@@ -26,8 +26,8 @@ splunk_api_token_name = 'splunk_api_token'
 HOST = 'es.splk.me'
 PORT = 8089
 splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
-max_count = 12345678  # Maximum number of events allowed to be returned from the Splunk API
-timeout = 1200  # TTL for search job
+max_count = 123456789  # Maximum number of events allowed to be returned from the Splunk API
+timeout = 86400  # TTL for search job
 
 # Splunk: Time Range Configuration
 start_time_str = '2022-10-21 00:00'
@@ -38,7 +38,7 @@ use_sampling = False
 
 # Splunk: Query Configuration
 # splunk_query = 'search index=summary_cisbot sourcetype=stash signal=*'
-splunk_query = 'search index=_internal sourcetype=splunkd'
+splunk_query = 'search index=_internal sourcetype=splunkd | Head 100'
 
 # Number of multiprocessing jobs (threads) allowed to run simultaneously.
 # Default Splunk per-user concurrency limit is 50.
@@ -94,7 +94,7 @@ def worker(dt):
     result = s3_client.list_objects_v2(Bucket=s3_bucket, Prefix=key)
     if 'Contents' in result:
         fsize = result['Contents'][0]['Size']
-        print(f'{key} exists and is {fsize} bytes.')
+        print(f'{key} exists and is {fsize/1024/1024} megabytes.')
 
     # Splunk earliest/latest query time calulation
     earliest = dt.strftime(splunk_time_format)
@@ -108,10 +108,11 @@ def worker(dt):
             latest_time=latest, 
             output_mode="json", 
             sample_ratio=sample_ratio, 
-            max_count=max_count, 
+            max_count=max_count,
+            count=0, 
             timeout=timeout
             )
-            
+
     except Exception as e:
         print('ERROR ' + str(e))
     
