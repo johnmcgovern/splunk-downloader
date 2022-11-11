@@ -163,7 +163,7 @@ def worker(dt):
     # Store the StringIO file ojbect in S3.
     if write_to_s3: 
         if debug_mode:
-            print("S3 Write:", s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue()))
+            print("AWS S3:", s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue()))
         if not debug_mode:
             s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue())
 
