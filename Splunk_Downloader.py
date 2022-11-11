@@ -49,10 +49,13 @@ start_time_utc = start_time.astimezone('utc')
 
 
 # Print initial config variables
-print() # spacer
-print("Splunk Host:", splunk_host)
-print("Splunk Port:", splunk_port)
-print("Splunk Query:", splunk_query)
+if debug_mode:
+    print("\nAWS Region:", aws_region_name)
+    print("AWS Bucket:", aws_s3_bucket)
+    print("AWS Base Key:",aws_s3_base_key, "\n")
+    print("Splunk Host:", splunk_host)
+    print("Splunk Port:", splunk_port)
+    print("Splunk Query:", splunk_query)
 
 # If vip_to_hostname is True
 # Set host to the actual name of the search head
