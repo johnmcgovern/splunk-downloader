@@ -155,5 +155,6 @@ cython_debug/
 ## Project Specific Exceptions
 config.py
 data/*
+!data/README.md
 splunk_node_lookup.py
 .DS_Store

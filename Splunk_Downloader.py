@@ -7,6 +7,7 @@
 import boto3
 import json
 import pandas as pd
+import os
 import sys
 import time
 
@@ -14,6 +15,7 @@ import splunklib.client as spclient
 
 from io import StringIO
 from joblib import Parallel, delayed
+from pathlib import Path
 
 from config import *
 
@@ -46,9 +48,14 @@ start_time = pd.Timestamp(start_time_str, tz=start_time_region)
 start_time_utc = start_time.astimezone('utc')
 
 
+# Print initial config variables
+print() # spacer
+print("Splunk Host:", splunk_host)
+print("Splunk Port:", splunk_port)
+print("Splunk Query:", splunk_query)
+
 # If vip_to_hostname is True
 # Set host to the actual name of the search head
-print() # spacer
 if vip_to_hostname:
     try:
         old_host = splunk_host
@@ -58,13 +65,13 @@ if vip_to_hostname:
         splunk_host = service.info()['host']
         
         if debug_mode:
-            print("VIP to Host: Changed from", old_host, "to", splunk_host)
+            print("VIP to Host: Changed from", old_host, "to", splunk_host, "\n")
 
     except Exception as e:
         print('ERROR: Unable to derive search head hostname' + str(e))
 
 if not vip_to_hostname:
-    print("Hostname:", splunk_host)
+    print("Hostname:", splunk_host, "\n")
 
 
 # Open Splunk API session
@@ -135,13 +142,28 @@ def worker(dt):
     if debug_mode:
         print("File Buffer: Wrote dataframe to json buffer for output.")
 
+    # Store the StringIO file ojbect to the local file system.
     if write_to_local_file:
-        # Store the StringIO file ojbect to the local file system.
-        pass
+        home_path = os.path.dirname(__file__)
+        local_file_path = home_path + "/data/" + aws_s3_bucket + "/" + key + "/"
+        output_file = Path(local_file_path)
 
+        if debug_mode:
+            print("Local File: Writing file to:", local_file_path)
+
+        output_file.parent.mkdir(exist_ok=True, parents=True)
+        output_file.write_text(json_buffer.getvalue())
+
+        if debug_mode:
+            print("Local File: Write completed.")
+    
+    # Store the StringIO file ojbect in S3.
     if write_to_s3: 
-        # Store the StringIO file ojbect in S3.
-        s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue())
+        if debug_mode:
+            print("S3 Write:", s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue()))
+        if not debug_mode:
+            s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue())
+
         if debug_mode:
             print("Wrote to S3:", "Bucket-", aws_s3_bucket, "Key-", key)
 
@@ -153,7 +175,7 @@ def worker(dt):
 #
 timer_start = time.time()
 
-result = Parallel(n_jobs=job_count, prefer="threads")(delayed(worker)(dt) for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_freq))
+result = Parallel(n_jobs=max_concurrent_jobs, prefer="threads")(delayed(worker)(dt) for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_freq))
 
 timer_end = time.time()
 
