@@ -45,22 +45,31 @@ splunk_token = splunk_param['Parameter']['Value']
 start_time = pd.Timestamp(start_time_str, tz=start_time_region)
 start_time_utc = start_time.astimezone('utc')
 
+
 # If vip_to_hostname is True
-# Set HOST to the actual name of the search head
+# Set host to the actual name of the search head
 print() # spacer
 if vip_to_hostname:
     try:
-        old_host = HOST
-        service = spclient.connect(host=HOST,port=PORT,token=splunk_token)
-        HOST = service.info()['host']
+        old_host = splunk_host
+
+        # Pull the search head FQDN from the /services/servers/info API endpoint.
+        service = spclient.connect(host=splunk_host,port=splunk_port,token=splunk_token)
+        splunk_host = service.info()['host']
+        
         if debug_mode:
-            print("VIP to Host: Changed from", old_host, "to", HOST)
+            print("VIP to Host: Changed from", old_host, "to", splunk_host)
+
     except Exception as e:
         print('ERROR: Unable to derive search head hostname' + str(e))
 
+if not vip_to_hostname:
+    print("Hostname:", splunk_host)
+
+
 # Open Splunk API session
 try:
-    service = spclient.connect(host=HOST,port=PORT,token=splunk_token)
+    service = spclient.connect(host=splunk_host,port=splunk_port,token=splunk_token)
 except Exception as e: 
     print('ERROR: Unable to connect to Splunk host', str(e))
     sys.exit(1)
@@ -78,8 +87,8 @@ def worker(dt):
     
     # Check if file exists in S3, if yes print message and move on.
     # Note: Currently this script overwrites existing files.
-    key = s3_base_key + f'{dt.year}/{dt.month:02d}/{dt.day:02d}/'+filename
-    result = s3_client.list_objects_v2(Bucket=s3_bucket, Prefix=key)
+    key = aws_s3_base_key + f'{dt.year}/{dt.month:02d}/{dt.day:02d}/'+filename
+    result = s3_client.list_objects_v2(Bucket=aws_s3_bucket, Prefix=key)
     if 'Contents' in result:
         fsize = result['Contents'][0]['Size']
         if debug_mode:
@@ -100,17 +109,19 @@ def worker(dt):
             latest_time=latest, 
             output_mode="json", 
             sample_ratio=sample_ratio, 
-            max_count=max_count,
             count=0, 
-            timeout=timeout
+            max_count=123456789,
+            timeout=86400
             )
     except Exception as e:
         print('ERROR ' + str(e))
+    if debug_mode:
+        print("API Query: Splunk API call (/search/jobs/export) complete.")
     
     # Parse search results
     raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
     if debug_mode:
-        print("Results List: Parsed results of Splunk Query.")
+        print("Results: Parsed results of Splunk query.")
 
     # Store the search results in a pandas data frame (2D size-mutable table)
     df = pd.DataFrame([r['result'] for r in raw_list if r['preview']==False])
@@ -130,9 +141,9 @@ def worker(dt):
 
     if write_to_s3: 
         # Store the StringIO file ojbect in S3.
-        s3_resource.Object(s3_bucket, key).put(Body=json_buffer.getvalue())
+        s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue())
         if debug_mode:
-            print("Wrote to S3:", "Bucket-", s3_bucket, "Key-", key)
+            print("Wrote to S3:", "Bucket-", aws_s3_bucket, "Key-", key)
 
     print("Job Complete:", dt, df.shape, "\n")
 
