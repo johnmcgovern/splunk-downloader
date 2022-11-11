@@ -156,3 +156,4 @@ cython_debug/
 config.py
 data/*
 splunk_node_lookup.py
+.DS_Store
