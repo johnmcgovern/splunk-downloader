@@ -4,6 +4,7 @@ This python script is used to download data from the Splunk API and write it to 
 
 ## Setup
 
+- git clone https://github.com/splunkcse/Splunk_Downloader.git
 - cp config_samply.py to config.py
 - Modify config.py variables to suite the specific environment
 - Run the script: ./Splunk_Downloader.py
