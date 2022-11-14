@@ -98,7 +98,7 @@ except Exception as e:
     print('ERROR: Unable to connect to Splunk host:', str(e))
     sys.exit(1)
 if debug_mode:
-    print("\nSplunk Session: Opened Splunk API session\n")
+    print("Splunk Session: Opened Splunk API session\n")
 
 
 # Worker function for multi-processing purposes.
@@ -124,7 +124,7 @@ def worker(dt):
     earliest = dt.strftime(splunk_time_format)
     latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ms')).strftime(splunk_time_format)
     if debug_mode:
-        print("Time Range:", dt,ts, key, "\n")
+        print("Time Range:", dt,ts, key, "\n\n")
 
 
     # Splunk API Query Export Call
@@ -200,6 +200,6 @@ result = Parallel(n_jobs=max_concurrent_jobs, prefer="threads")(delayed(worker)(
 
 timer_end = time.time()
 
-print('\n\nTime Elapsed:', round(timer_end - timer_start, 2), "seconds")
-print('\n\n== Done ==')
+print('\nTime Elapsed:', round(timer_end - timer_start, 2), "seconds")
+print('\n== Done ==')
 
