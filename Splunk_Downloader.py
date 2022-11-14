@@ -32,7 +32,7 @@ if debug_mode:
 
 # Sampling Logic:
 # For high data volumes: 
-#     Shorten the frequency (more files, smaler size).
+#     Shorten the frequency (more files, smaller size).
 #     Use sampling (smaller size, incomplete data).
 if use_sampling:
     file_name_template = 'bot_signal_raw_<ts>_<freq>_sampled_<ratio>.json'
@@ -42,7 +42,7 @@ if not use_sampling:
     sample_ratio=1
 
 
-# AWS Boto3 S3 API Setup
+# AWS S3 API Setup (Boto3)
 if write_to_s3:
     aws_s3 = boto3.Session(region_name=aws_region_name)
     s3_resource = aws_s3.resource('s3')
