@@ -20,6 +20,16 @@ from pathlib import Path
 from config import *
 
 
+# Print initial config variables
+if debug_mode:
+    print("\nAWS Region:", aws_region_name)
+    print("AWS Bucket:", aws_s3_bucket)
+    print("AWS Base Key:",aws_s3_base_key, "\n")
+    print("Splunk Host:", splunk_host)
+    print("Splunk Port:", splunk_port)
+    print("Splunk Query:", splunk_query)
+
+
 # Sampling Logic:
 # For high data volumes: 
 #     Shorten the frequency (more files, smaler size).
@@ -31,47 +41,50 @@ if not use_sampling:
     file_name_template = 'bot_signal_raw_<ts>_<freq>.json'
     sample_ratio=1
 
-# AWS Simple Systems Manager / BOTO Session Setup
-aws = boto3.Session(region_name=aws_region_name)
-ssm = aws.client('ssm')
-s3_resource = aws.resource('s3')
-s3_client = aws.client('s3')
 
-# Splunk SDK Session setup w/ SSM Params
-# Comment out the line below and set splunk_token directly to
-#  avoid using AWS SSM.
-splunk_param = ssm.get_parameter(Name=splunk_api_token_name, WithDecryption=True)
-splunk_token = splunk_param['Parameter']['Value']
+# AWS Boto3 S3 API Setup
+if write_to_s3:
+    aws_s3 = boto3.Session(region_name=aws_region_name)
+    s3_resource = aws_s3.resource('s3')
+    s3_client = aws_s3.client('s3')
+
+
+# Splunk API Token Options:
+#   If splunk_api_token_raw is NOT blank, use it
+#   Otherwise retrieve the token from the AWS SSM parameter store
+if splunk_api_token_raw != '':
+    splunk_token = splunk_api_token_raw
+    if debug_mode:
+        print("\nAPI Token: Using raw (plain text) API token")
+
+if splunk_api_token_raw == '':
+    aws_ssm = boto3.Session(region_name=aws_region_name)
+    ssm = aws_ssm.client('ssm')
+    splunk_param = ssm.get_parameter(Name=splunk_api_token_ssm, WithDecryption=True)
+    splunk_token = splunk_param['Parameter']['Value']
+    if debug_mode:
+        print("\nAPI Token: Using API token retrieved from AWS SSM parameter:", splunk_api_token_ssm)
+
 
 # Start time in both specific TZ and UTC
 start_time = pd.Timestamp(start_time_str, tz=start_time_region)
 start_time_utc = start_time.astimezone('utc')
 
 
-# Print initial config variables
-if debug_mode:
-    print("\nAWS Region:", aws_region_name)
-    print("AWS Bucket:", aws_s3_bucket)
-    print("AWS Base Key:",aws_s3_base_key, "\n")
-    print("Splunk Host:", splunk_host)
-    print("Splunk Port:", splunk_port)
-    print("Splunk Query:", splunk_query)
-
 # If vip_to_hostname is True
 # Set host to the actual name of the search head
 if vip_to_hostname:
     try:
-        old_host = splunk_host
-
         # Pull the search head FQDN from the /services/servers/info API endpoint.
+        old_host = splunk_host
         service = spclient.connect(host=splunk_host,port=splunk_port,token=splunk_token)
         splunk_host = service.info()['host']
-        
         if debug_mode:
             print("VIP to Host: Changed from", old_host, "to", splunk_host, "\n")
 
     except Exception as e:
-        print('ERROR: Unable to derive search head hostname' + str(e))
+        print('ERROR: Unable to derive search head hostname:', str(e))
+        sys.exit(1)
 
 if not vip_to_hostname:
     print("Hostname:", splunk_host, "\n")
@@ -81,12 +94,13 @@ if not vip_to_hostname:
 try:
     service = spclient.connect(host=splunk_host,port=splunk_port,token=splunk_token)
 except Exception as e: 
-    print('ERROR: Unable to connect to Splunk host', str(e))
+    print('ERROR: Unable to connect to Splunk host:', str(e))
     sys.exit(1)
 if debug_mode:
-    print("Splunk Session: Opened Splunk API session")
+    print("Splunk Session: Opened Splunk API session\n")
 
 
+# Worker function for multi-processing purposes.
 def worker(dt):
 
     # Construct the filename with timestamp, frequency, and sampling ratio.
@@ -97,12 +111,13 @@ def worker(dt):
     
     # Check if file exists in S3, if yes print message and move on.
     # Note: Currently this script overwrites existing files.
-    key = aws_s3_base_key + f'{dt.year}/{dt.month:02d}/{dt.day:02d}/'+filename
-    result = s3_client.list_objects_v2(Bucket=aws_s3_bucket, Prefix=key)
-    if 'Contents' in result:
-        fsize = result['Contents'][0]['Size']
-        if debug_mode:
-            print(f'File Exists: {key} exists and is {fsize/1024/1024} megabytes. Skipping.')
+    if write_to_s3:
+        key = aws_s3_base_key + f'{dt.year}/{dt.month:02d}/{dt.day:02d}/'+filename
+        result = s3_client.list_objects_v2(Bucket=aws_s3_bucket, Prefix=key)
+        if 'Contents' in result:
+            fsize = result['Contents'][0]['Size']
+            if debug_mode:
+                print(f'File Exists: {key} exists and is {fsize/1024/1024} megabytes. Skipping.')
 
     # Splunk earliest/latest query time calulation
     earliest = dt.strftime(splunk_time_format)
@@ -145,6 +160,7 @@ def worker(dt):
     if debug_mode:
         print("File Buffer: Wrote dataframe to json buffer for output.")
 
+
     # Store the StringIO file ojbect to the local file system.
     if write_to_local_file:
         home_path = os.path.dirname(__file__)
@@ -160,6 +176,7 @@ def worker(dt):
         if debug_mode:
             print("Local File: Write completed.")
     
+
     # Store the StringIO file ojbect in S3.
     if write_to_s3: 
         if debug_mode:

@@ -11,11 +11,16 @@ aws_region_name = 'us-west-2'
 aws_s3_bucket = 'splunk-export-to-s3'
 aws_s3_base_key = 'inbox/bot_signal_raw/' # file path within the S3 bucket
 
-# Splunk: API Configuration
-splunk_api_token_name = 'splunk_api_token'  # Refers to an AWS SSM parameter name.
+# Splunk Host Configuration
 splunk_host = 'es.splk.me'
 splunk_port = 8089
 splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
+
+# Splunk API Token Configuraiton
+# If the "raw" token string is provided, we use it. 
+# Otherwise the token is retrieved from the AWS SSM parameter store.
+splunk_api_token_raw = ''  # Raw text of the Splunk API token.
+splunk_api_token_ssm = 'splunk_api_token'  # AWS System Manager Parameter Name
 
 # Splunk: Query Configuration
 splunk_query = 'search index=_internal sourcetype=splunkd | head 1000 | table *'
@@ -30,7 +35,7 @@ use_sampling = False
 # Number of multiprocessing jobs (threads) allowed to run simultaneously.
 # Default Splunk per-user concurrency limit is 50.
 # Tune this value based on available API and local resources.
-job_count = 1
+max_concurrent_jobs = 1
 
 # Feature flags (True/False)
 vip_to_hostname = True  # Uses the API to jump from VIP to a specific search head hostname
