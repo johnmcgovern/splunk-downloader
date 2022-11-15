@@ -27,7 +27,11 @@ if debug_mode:
     print("AWS Base Key:",aws_s3_base_key, "\n")
     print("Splunk Host:", splunk_host)
     print("Splunk Port:", splunk_port)
-    print("Splunk Query:", splunk_query)
+    print("Splunk Query:", splunk_query, "\n")
+    print("Flag vip_to_hostname:", vip_to_hostname)
+    print("Flag write_to_s3:", write_to_s3)
+    print("Flag write_to_local_file:", write_to_local_file)
+    print("Flag debug_mode:", debug_mode, "\n")
 
 
 # Sampling Logic:
@@ -124,7 +128,7 @@ def worker(dt):
     earliest = dt.strftime(splunk_time_format)
     latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ms')).strftime(splunk_time_format)
     if debug_mode:
-        print("Time Range:", dt,ts, key, "\n\n")
+        print("Time Range:", dt,ts, key, "\n")
 
 
     # Splunk API Query Export Call
@@ -140,14 +144,22 @@ def worker(dt):
             timeout=86400
             )
     except Exception as e:
-        print('ERROR ' + str(e))
+        print('Splunk API Export Error:', str(e))
+        sys.exit(1)
+
     if debug_mode:
         print("API Query: Splunk API call (/search/jobs/export) complete.")
+        print
     
+
     # Parse search results
-    raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
+    try:
+        raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
+    except Exception as e:
+        print('Results Parsing Error:', str(e))
+        sys.exit(1)
     if debug_mode:
-        print("Results: Parsed results of Splunk query.")
+        print("Results raw_list: Parsed results of Splunk query.")
 
     # Store the search results in a pandas data frame (2D size-mutable table)
     df = pd.DataFrame([r['result'] for r in raw_list if r['preview']==False])
@@ -165,7 +177,7 @@ def worker(dt):
     # Store the StringIO file ojbect to the local file system.
     if write_to_local_file:
         home_path = os.path.dirname(__file__)
-        local_file_path = home_path + "/data/" + aws_s3_bucket + "/" + key + "/"
+        local_file_path = home_path + "/data/" + aws_s3_bucket + "/" + key
         output_file = Path(local_file_path)
 
         if debug_mode:
@@ -175,7 +187,7 @@ def worker(dt):
         output_file.write_text(json_buffer.getvalue())
 
         if debug_mode:
-            print("Local File: Write completed.")
+            print("Local File: Write completed. Size:", round(os.path.getsize(local_file_path)/1024/1024,2), "MB")
     
 
     # Store the StringIO file ojbect in S3.
