@@ -17,8 +17,8 @@ splunk_port = 8089
 splunk_time_format = '%Y-%m-%dT%H:%M:%S.%f'
 
 # Splunk API Token Configuraiton
-# If the "raw" token string is provided, we use it. 
-# Otherwise the token is retrieved from the AWS SSM parameter store.
+# If the "raw" token string is provided, use it first. 
+# Otherwise pull the token from AWS SSM Parameter Store.
 splunk_api_token_raw = ''  # Raw text of the Splunk API token.
 splunk_api_token_ssm = 'splunk_api_token'  # AWS System Manager Parameter Name
 
