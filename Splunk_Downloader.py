@@ -151,8 +151,7 @@ def worker(dt):
 
     if debug_mode:
         print("API Query: Splunk API call (/search/jobs/export) complete. Timer:", round(api_timer_end - api_timer_start, 2), "seconds")
-        print
-    
+
 
     # Parse search results
     try:
@@ -164,6 +163,8 @@ def worker(dt):
         sys.exit(1)
     if debug_mode:
         print("Results raw_list: Parsed results of Splunk query. Timer:", round(parse_timer_end - parse_timer_start, 2), "seconds")
+        print("Results raw_list Length:", len(raw_list))
+        # print("Sample:", raw_list[len(raw_list)-1])
 
     # Store the search results in a pandas data frame (2D size-mutable table)
     pandas_timer_start = time.time()
@@ -177,7 +178,7 @@ def worker(dt):
     df.to_json(json_buffer)
     pandas_timer_end = time.time()
     if debug_mode:
-        print("DF -> Buffer: Wrote dataframe to json buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
+        print("DF -> Buffer: Wrote dataframe to JSON buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
 
 
     # Store the StringIO file ojbect to the local file system.
