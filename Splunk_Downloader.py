@@ -133,6 +133,7 @@ def worker(dt):
 
     # Splunk API Query Export Call
     try:
+        api_timer_start = time.time()
         rr = service.jobs.export(
             query=splunk_query, 
             earliest_time=earliest, 
@@ -143,25 +144,29 @@ def worker(dt):
             max_count=123456789,
             timeout=86400
             )
+        api_timer_end = time.time()
     except Exception as e:
         print('Splunk API Export Error:', str(e))
         sys.exit(1)
 
     if debug_mode:
-        print("API Query: Splunk API call (/search/jobs/export) complete.")
+        print("API Query: Splunk API call (/search/jobs/export) complete. Timer:", round(api_timer_end - api_timer_start, 2), "seconds")
         print
     
 
     # Parse search results
     try:
+        parse_timer_start = time.time()
         raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
+        parse_timer_end = time.time()
     except Exception as e:
         print('Results Parsing Error:', str(e))
         sys.exit(1)
     if debug_mode:
-        print("Results raw_list: Parsed results of Splunk query.")
+        print("Results raw_list: Parsed results of Splunk query. Timer:", round(parse_timer_end - parse_timer_start, 2), "seconds")
 
     # Store the search results in a pandas data frame (2D size-mutable table)
+    pandas_timer_start = time.time()
     df = pd.DataFrame([r['result'] for r in raw_list if r['preview']==False])
     if debug_mode:
         # "Return a tuple representing the dimensionality of the DataFrame."
@@ -170,8 +175,9 @@ def worker(dt):
     # Initialize empty StringIO object and store dataframe as JSON object in it.
     json_buffer = StringIO()
     df.to_json(json_buffer)
+    pandas_timer_end = time.time()
     if debug_mode:
-        print("File Buffer: Wrote dataframe to json buffer for output.")
+        print("DF -> Buffer: Wrote dataframe to json buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
 
 
     # Store the StringIO file ojbect to the local file system.
