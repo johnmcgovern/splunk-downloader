@@ -4,8 +4,9 @@ This python script is used to download data from the Splunk API and write it to 
 
 ## Setup
 
+- pip3 install boto3 && pip3 install joblib && pip3 install pandas && pip3 install splunk-sdk
 - git clone https://github.com/splunkcse/Splunk_Downloader.git
-- cp config_samply.py to config.py
+- cp config_samply.py config.py
 - Modify config.py variables to suite the specific environment
 - Run the script: ./Splunk_Downloader.py
 

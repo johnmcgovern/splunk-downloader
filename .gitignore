@@ -156,5 +156,7 @@ cython_debug/
 config.py
 data/*
 !data/README.md
+logs/*
+!logs/README.md
 splunk_node_lookup.py
 .DS_Store
