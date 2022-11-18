@@ -20,18 +20,36 @@ from pathlib import Path
 from config import *
 
 
+# Wrapper function for console logging
+def l2c(*args):
+    if log_to_console:
+        print(*args)
+
+
+# Setup logging file
+if log_to_file:
+    home_path = os.path.dirname(os.path.abspath(__file__))
+    log_file_path = home_path + "/logs/" + str(time.time()) + ".log"
+    log_file = Path(log_file_path)
+    log_file.parent.mkdir(exist_ok=True, parents=True)
+
+# Wrapper function for local file logging
+def l2f(*args):
+    if log_to_file:
+        log_file.write_text(time.time(), *args)
+
+
 # Print initial config variables
-if debug_mode:
-    print("\nAWS Region:", aws_region_name)
-    print("AWS Bucket:", aws_s3_bucket)
-    print("AWS Base Key:",aws_s3_base_key, "\n")
-    print("Splunk Host:", splunk_host)
-    print("Splunk Port:", splunk_port)
-    print("Splunk Query:", splunk_query, "\n")
-    print("Flag vip_to_hostname:", vip_to_hostname)
-    print("Flag write_to_s3:", write_to_s3)
-    print("Flag write_to_local_file:", write_to_local_file)
-    print("Flag debug_mode:", debug_mode)
+l2c("\nAWS Region:", aws_region_name)
+l2c("AWS Bucket:", aws_s3_bucket)
+l2c("AWS Base Key:",aws_s3_base_key, "\n")
+l2c("Splunk Host:", splunk_host)
+l2c("Splunk Port:", splunk_port)
+l2c("Splunk Query:", splunk_query, "\n")
+l2c("Flag vip_to_hostname:", vip_to_hostname)
+l2c("Flag write_to_s3:", write_to_s3)
+l2c("Flag write_to_local_file:", write_to_local_file)
+l2c("Flag log_to_console:", log_to_console)
 
 
 # Sampling Logic:
@@ -58,27 +76,24 @@ if write_to_s3:
 #   Otherwise retrieve the token from the AWS SSM parameter store
 if splunk_api_token_raw != '':
     splunk_token = splunk_api_token_raw
-    if debug_mode:
-        print("API Token: Using raw (plain text) API token")
+    l2c("API Token: Using raw (plain text) API token")
 
 if splunk_api_token_raw == '':
     aws_ssm = boto3.Session(region_name=aws_region_name)
     ssm = aws_ssm.client('ssm')
     splunk_param = ssm.get_parameter(Name=splunk_api_token_ssm, WithDecryption=True)
     splunk_token = splunk_param['Parameter']['Value']
-    if debug_mode:
-        print("\nAPI Token: Using API token retrieved from AWS SSM parameter:", splunk_api_token_ssm)
+    l2c("\nAPI Token: Using API token retrieved from AWS SSM parameter:", splunk_api_token_ssm)
 
 
 # Start time in both specific TZ and UTC
 start_time = pd.Timestamp(start_time_str, tz=start_time_region)
 start_time_utc = start_time.astimezone('utc')
 
-if debug_mode:
-    print("\nTime start_time:", start_time)
-    print("Time start_time_utc:", start_time_utc)
-    print("Time range_periods:", range_periods)
-    print("Time range_freq:", range_freq)
+l2c("\nTime start_time:", start_time)
+l2c("Time start_time_utc:", start_time_utc)
+l2c("Time range_periods:", range_periods)
+l2c("Time range_freq:", range_freq)
 
 # If vip_to_hostname is True
 # Set host to the actual name of the search head
@@ -88,16 +103,14 @@ if vip_to_hostname:
         old_host = splunk_host
         service = spclient.connect(host=splunk_host,port=splunk_port,token=splunk_token)
         splunk_host = service.info()['host']
-        if debug_mode:
-            print("\nVIP to Host: Changed from", old_host, "to", splunk_host, "\n")
+        l2c("\nVIP to Host: Changed from", old_host, "to", splunk_host, "\n")
 
     except Exception as e:
         print('ERROR: Unable to derive search head hostname:', str(e))
         sys.exit(1)
 
 if not vip_to_hostname:
-    if debug_mode:
-        print("Hostname:", splunk_host, "\n")
+    l2c("Hostname:", splunk_host, "\n")
 
 
 # Open Splunk API session
@@ -106,8 +119,7 @@ try:
 except Exception as e: 
     print('ERROR: Unable to connect to Splunk host:', str(e))
     sys.exit(1)
-if debug_mode:
-    print("Splunk Session: Opened Splunk API session\n")
+l2c("Splunk Session: Opened Splunk API session\n")
 
 
 # Worker function for multi-processing purposes.
@@ -126,8 +138,7 @@ def worker(dt):
         result = s3_client.list_objects_v2(Bucket=aws_s3_bucket, Prefix=key)
         if 'Contents' in result:
             fsize = result['Contents'][0]['Size']
-            if debug_mode:
-                print(f'File Exists: {key} exists and is {fsize/1024/1024} megabytes. Skipping.')
+            l2c(f'File Exists: {key} exists and is {fsize/1024/1024} megabytes. Skipping.')
 
     # Splunk earliest/latest query time calulation
     # date/time strftime format:
@@ -136,12 +147,11 @@ def worker(dt):
     # epoch:
     earliest = dt.timestamp()
     latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ns')).timestamp()
-    if debug_mode:
-        print("---")
-        print("Time Zone:", start_time_region)
-        print("Time Earliest:", earliest)
-        print("Time Latest:", latest)
-        print("Time Range:", dt,ts, key)
+    l2c("---")
+    l2c("Time Zone:", start_time_region)
+    l2c("Time Earliest:", earliest)
+    l2c("Time Latest:", latest)
+    l2c("Time Range:", dt,ts, key)
 
 
     # Splunk API Query Export Call
@@ -162,41 +172,37 @@ def worker(dt):
     except Exception as e:
         print('Splunk API Export Error:', str(e))
         sys.exit(1)
-    if debug_mode:
-        print("API Query: Initial Splunk API call (/search/jobs/export) complete. Timer:", round(api_timer_end - api_timer_start, 2), "seconds")
+    l2c("API Query: Initial Splunk API call (/search/jobs/export) complete. Timer:", round(api_timer_end - api_timer_start, 2), "seconds")
 
 
     # Read & Parse Search Results from Splunk API
     try:
         parse_timer_start = time.time()
+        l2c("API Query: Starting results download.")
         raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
         parse_timer_end = time.time()
     except Exception as e:
         print('Results Parsing Error:', str(e))
         sys.exit(1)
-    if debug_mode:
-        print("API Query: Downloaded and parsed query results. Timer:", round(parse_timer_end - parse_timer_start, 2), "seconds")
-        print("API Query: raw_list length:", len(raw_list))
+    l2c("API Query: Downloaded and parsed query results. Timer:", round(parse_timer_end - parse_timer_start, 2), "seconds")
+    l2c("API Query: raw_list length:", len(raw_list))
 
     # Exit the script if there are no results returned
     if len(raw_list) <= 1:
-        if debug_mode:
-            print("API Query: Query returned no results. Exiting.")
+        print("API Query: Query returned no results. Exiting.")
         sys.exit(1)
 
     # Store the search results in a pandas data frame (2D size-mutable table)
     pandas_timer_start = time.time()
     df = pd.DataFrame([r['result'] for r in raw_list if r['preview']==False])
-    if debug_mode:
-        # "Return a tuple representing the dimensionality of the DataFrame."
-        print('Data Frame Dimensions:',df.shape)
+    # "Return a tuple representing the dimensionality of the DataFrame."
+    l2c('Data Frame Dimensions:',df.shape)
 
     # Initialize empty StringIO object and store dataframe as JSON object in it.
     json_buffer = StringIO()
     df.to_json(json_buffer)
     pandas_timer_end = time.time()
-    if debug_mode:
-        print("DF -> Buffer: Wrote DataFrame to JSON buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
+    l2c("DF -> Buffer: Wrote DataFrame to JSON buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
 
 
     # Store the StringIO file ojbect to the local file system.
@@ -206,28 +212,24 @@ def worker(dt):
         local_file_path = home_path + "/data/" + aws_s3_bucket + "/" + key
         output_file = Path(local_file_path)
 
-        if debug_mode:
-            print("Local File: Writing file to:", local_file_path)
+        l2c("Local File: Writing file to:", local_file_path)
 
         output_file.parent.mkdir(exist_ok=True, parents=True)
         output_file.write_text(json_buffer.getvalue())
 
-        if debug_mode:
-            print("Local File: Write completed. Size:", round(os.path.getsize(local_file_path)/1024/1024,2), "MB")
+        l2c("Local File: Write completed. Size:", round(os.path.getsize(local_file_path)/1024/1024,2), "MB")
     
 
     # Store the StringIO file ojbect in S3.
     if write_to_s3: 
-        if debug_mode:
-            print("AWS S3:", s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue()))
-        if not debug_mode:
+        l2c("AWS S3:", s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue()))
+        if not log_to_console:
             s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue())
 
-        if debug_mode:
-            print("Wrote to S3:", "Bucket-", aws_s3_bucket, "Key-", key)
+        l2c("Wrote to S3:", "Bucket-", aws_s3_bucket, "Key-", key)
 
     print("Job Complete:", dt, df.shape)
-    print("---\n")
+    l2c("---\n")
 
 
 # 
@@ -239,6 +241,6 @@ result = Parallel(n_jobs=max_concurrent_jobs, prefer="threads")(delayed(worker)(
 
 timer_end = time.time()
 
-print('\nTime Elapsed:', round(timer_end - timer_start, 2), "seconds")
-print('\n== Done ==')
+l2c('\nTotal Runtime:', round(timer_end - timer_start, 2), "seconds")
+l2c('\n== Done ==')
 

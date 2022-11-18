@@ -41,4 +41,5 @@ max_concurrent_jobs = 1
 vip_to_hostname = True  # Uses the API to jump from VIP to a specific search head hostname
 write_to_s3 = True  # Should the script write to AWS S3
 write_to_local_file = False  # Should the script write to the local filesystem
-debug_mode = True  # Should the script output debug messages
+log_to_console = True  # Should the script output debug messages
+log_to_file = True  # Should the script log to a file
