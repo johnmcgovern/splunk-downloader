@@ -29,7 +29,7 @@ splunk_query = 'search index=_internal sourcetype=splunkd | head 1000 | table *'
 start_time_str = '2022-11-07 00:00'
 start_time_region = 'us/pacific' #'utc'
 range_periods = 1  # Number of time periods to generate.
-range_freq = '1h'  # Date/time period length for each exported file. #5min #1h #1d
+range_freq = '1h'  # Date/time period length for each exported file. #5min #1h #1d 2m ("m" is month, not minutes)
 use_sampling = False
 
 # Number of multiprocessing jobs (threads) allowed to run simultaneously.
