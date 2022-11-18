@@ -159,4 +159,5 @@ data/*
 logs/*
 !logs/README.md
 splunk_node_lookup.py
+test.py
 .DS_Store
