@@ -29,14 +29,16 @@ def l2c(*args):
 # Setup logging file
 if log_to_file:
     home_path = os.path.dirname(os.path.abspath(__file__))
-    log_file_path = home_path + "/logs/" + str(time.time()) + ".log"
-    log_file = Path(log_file_path)
-    log_file.parent.mkdir(exist_ok=True, parents=True)
+    log_file_path = home_path + "/logs/Splunk_Downloader_" + str(time.time()) + ".log"
+    file_writer = open(log_file_path, "a")
 
 # Wrapper function for local file logging
 def l2f(*args):
     if log_to_file:
-        log_file.write_text(time.time(), *args)
+        log_file_text = str(time.time()) + " "
+        for arg in args:
+            log_file_text += str(arg)
+        file_writer.write(log_file_text)
 
 
 # Print initial config variables
@@ -50,6 +52,20 @@ l2c("Flag vip_to_hostname:", vip_to_hostname)
 l2c("Flag write_to_s3:", write_to_s3)
 l2c("Flag write_to_local_file:", write_to_local_file)
 l2c("Flag log_to_console:", log_to_console)
+l2c("Flag log_to_file:", log_to_file)
+l2f("message=Splunk_Downloader.py Initial Parameters", \
+    " aws_region_name=\"", aws_region_name, "\"", \
+    " aws_s3_buckete=\"", aws_s3_bucket, "\"", \
+    " aws_s3_base_key=\"", aws_s3_base_key, "\"", \
+    " splunk_host=\"", splunk_host, "\"", \
+    " splunk_port=\"", splunk_port, "\"", \
+    " splunk_query=\"", splunk_query, "\"", \
+    " vip_to_hostname=\"", vip_to_hostname, "\"", \
+    " write_to_s3=\"", write_to_s3, "\"", \
+    " write_to_local_file=\"", write_to_local_file, "\"", \
+    " log_to_console=\"", log_to_console, "\"", \
+    " log_to_file=\"", log_to_file, "\"", \
+    " range_freq=\"", range_freq, "\"\n")
 
 
 # Sampling Logic:
@@ -94,6 +110,11 @@ l2c("\nTime start_time:", start_time)
 l2c("Time start_time_utc:", start_time_utc)
 l2c("Time range_periods:", range_periods)
 l2c("Time range_freq:", range_freq)
+l2f("message=Splunk_Downloader.py Time Parameters", \
+    " start_time=\"", start_time, "\"", \
+    " start_time_utc=\"", start_time_utc, "\"", \
+    " range_periods=\"", range_periods, "\"", \
+    " range_freq=\"", range_freq, "\"\n")
 
 # If vip_to_hostname is True
 # Set host to the actual name of the search head
@@ -241,6 +262,9 @@ result = Parallel(n_jobs=max_concurrent_jobs, prefer="threads")(delayed(worker)(
 
 timer_end = time.time()
 
-l2c('\nTotal Runtime:', round(timer_end - timer_start, 2), "seconds")
+total_runtime = round(timer_end - timer_start, 2)
+l2c('\nTotal Runtime:', total_runtime, "seconds")
 l2c('\n== Done ==')
+l2f("message=Splunk_Downloader.py Stopping", \
+    " total_runtime=\"", total_runtime, "\"")
 
