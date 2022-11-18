@@ -31,7 +31,7 @@ if debug_mode:
     print("Flag vip_to_hostname:", vip_to_hostname)
     print("Flag write_to_s3:", write_to_s3)
     print("Flag write_to_local_file:", write_to_local_file)
-    print("Flag debug_mode:", debug_mode, "\n")
+    print("Flag debug_mode:", debug_mode)
 
 
 # Sampling Logic:
@@ -59,7 +59,7 @@ if write_to_s3:
 if splunk_api_token_raw != '':
     splunk_token = splunk_api_token_raw
     if debug_mode:
-        print("\nAPI Token: Using raw (plain text) API token")
+        print("API Token: Using raw (plain text) API token")
 
 if splunk_api_token_raw == '':
     aws_ssm = boto3.Session(region_name=aws_region_name)
@@ -74,6 +74,11 @@ if splunk_api_token_raw == '':
 start_time = pd.Timestamp(start_time_str, tz=start_time_region)
 start_time_utc = start_time.astimezone('utc')
 
+if debug_mode:
+    print("\nTime start_time:", start_time)
+    print("Time start_time_utc:", start_time_utc)
+    print("Time range_periods:", range_periods)
+    print("Time range_freq:", range_freq)
 
 # If vip_to_hostname is True
 # Set host to the actual name of the search head
@@ -125,10 +130,18 @@ def worker(dt):
                 print(f'File Exists: {key} exists and is {fsize/1024/1024} megabytes. Skipping.')
 
     # Splunk earliest/latest query time calulation
-    earliest = dt.strftime(splunk_time_format)
-    latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ms')).strftime(splunk_time_format)
+    # date/time strftime format:
+    # earliest = dt.strftime(splunk_time_format)
+    # latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ns')).strftime(splunk_time_format)
+    # epoch:
+    earliest = dt.timestamp()
+    latest = (dt + pd.Timedelta(range_freq) - pd.Timedelta('1ns')).timestamp()
     if debug_mode:
-        print("Time Range:", dt,ts, key, "\n")
+        print("---")
+        print("Time Zone:", start_time_region)
+        print("Time Earliest:", earliest)
+        print("Time Latest:", latest)
+        print("Time Range:", dt,ts, key)
 
 
     # Splunk API Query Export Call
@@ -142,18 +155,18 @@ def worker(dt):
             sample_ratio=sample_ratio, 
             count=0, 
             max_count=123456789,
-            timeout=86400
+            timeout=86400,
+            adhoc_search_level="smart",
             )
         api_timer_end = time.time()
     except Exception as e:
         print('Splunk API Export Error:', str(e))
         sys.exit(1)
-
     if debug_mode:
-        print("API Query: Splunk API call (/search/jobs/export) complete. Timer:", round(api_timer_end - api_timer_start, 2), "seconds")
+        print("API Query: Initial Splunk API call (/search/jobs/export) complete. Timer:", round(api_timer_end - api_timer_start, 2), "seconds")
 
 
-    # Parse search results
+    # Read & Parse Search Results from Splunk API
     try:
         parse_timer_start = time.time()
         raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
@@ -162,9 +175,14 @@ def worker(dt):
         print('Results Parsing Error:', str(e))
         sys.exit(1)
     if debug_mode:
-        print("Results raw_list: Parsed results of Splunk query. Timer:", round(parse_timer_end - parse_timer_start, 2), "seconds")
-        print("Results raw_list Length:", len(raw_list))
-        # print("Sample:", raw_list[len(raw_list)-1])
+        print("API Query: Downloaded and parsed query results. Timer:", round(parse_timer_end - parse_timer_start, 2), "seconds")
+        print("API Query: raw_list length:", len(raw_list))
+
+    # Exit the script if there are no results returned
+    if len(raw_list) <= 1:
+        if debug_mode:
+            print("API Query: Query returned no results. Exiting.")
+        sys.exit(1)
 
     # Store the search results in a pandas data frame (2D size-mutable table)
     pandas_timer_start = time.time()
@@ -178,12 +196,13 @@ def worker(dt):
     df.to_json(json_buffer)
     pandas_timer_end = time.time()
     if debug_mode:
-        print("DF -> Buffer: Wrote dataframe to JSON buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
+        print("DF -> Buffer: Wrote DataFrame to JSON buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
 
 
     # Store the StringIO file ojbect to the local file system.
     if write_to_local_file:
-        home_path = os.path.dirname(__file__)
+        # home_path = os.path.dirname(__file__)
+        home_path = os.path.dirname(os.path.abspath(__file__))
         local_file_path = home_path + "/data/" + aws_s3_bucket + "/" + key
         output_file = Path(local_file_path)
 
@@ -207,7 +226,8 @@ def worker(dt):
         if debug_mode:
             print("Wrote to S3:", "Bucket-", aws_s3_bucket, "Key-", key)
 
-    print("Job Complete:", dt, df.shape, "\n")
+    print("Job Complete:", dt, df.shape)
+    print("---\n")
 
 
 # 
