@@ -161,7 +161,7 @@ def worker(dt):
     
     # Check if file exists in S3, if yes print message and move on.
     # Note: Currently this script overwrites existing files.
-    key = aws_s3_base_key + f'{dt.year}/{dt.month:02d}/{dt.day:02d}/'+filename
+    key = aws_s3_base_key + f'{dt.year}/{dt.month:02d}/{dt.day:02d}/' + filename
     if write_to_s3:
         result = s3_client.list_objects_v2(Bucket=aws_s3_bucket, Prefix=key)
         if 'Contents' in result:
@@ -286,5 +286,5 @@ timer_end = time.time()
 total_runtime = round(timer_end - timer_start, 2)
 l2c('\nTotal Runtime:', total_runtime, "seconds")
 l2c('\n== Done ==')
-l2f(f'message=Stopped" total_runtime="{total_runtime}"')
+l2f(f'message=Stopping Splunk_Downloader.py" total_runtime="{total_runtime}"')
 
