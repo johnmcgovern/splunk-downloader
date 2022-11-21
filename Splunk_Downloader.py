@@ -37,7 +37,7 @@ def l2f(*args):
     if log_to_file:
         log_file_text = str(time.time()) + " "
         for arg in args:
-            log_file_text += str(arg)
+            log_file_text += " ".join(str(arg).split()) + "\n" 
         file_writer.write(log_file_text)
 
 
@@ -53,19 +53,19 @@ l2c("Flag write_to_s3:", write_to_s3)
 l2c("Flag write_to_local_file:", write_to_local_file)
 l2c("Flag log_to_console:", log_to_console)
 l2c("Flag log_to_file:", log_to_file)
-l2f("message=Splunk_Downloader.py Initial Parameters", \
-    " aws_region_name=\"", aws_region_name, "\"", \
-    " aws_s3_buckete=\"", aws_s3_bucket, "\"", \
-    " aws_s3_base_key=\"", aws_s3_base_key, "\"", \
-    " splunk_host=\"", splunk_host, "\"", \
-    " splunk_port=\"", splunk_port, "\"", \
-    " splunk_query=\"", splunk_query, "\"", \
-    " vip_to_hostname=\"", vip_to_hostname, "\"", \
-    " write_to_s3=\"", write_to_s3, "\"", \
-    " write_to_local_file=\"", write_to_local_file, "\"", \
-    " log_to_console=\"", log_to_console, "\"", \
-    " log_to_file=\"", log_to_file, "\"", \
-    " range_freq=\"", range_freq, "\"\n")
+
+l2f(f'message="Initial Parameters" \
+    aws_region_name="{aws_region_name}" \
+    aws_s3_bucket="{aws_s3_bucket}" \
+    aws_s3_base_key="{aws_s3_base_key}" \
+    splunk_host="{splunk_host}" \
+    splunk_port="{splunk_port}" \
+    splunk_query="{splunk_query}" \
+    vip_to_hostname="{vip_to_hostname}" \
+    write_to_s3="{write_to_s3}" \
+    write_to_local_file="{write_to_local_file}" \
+    log_to_console="{log_to_console}" \
+    log_to_file="{log_to_file}"')
 
 
 # Sampling Logic:
@@ -110,11 +110,11 @@ l2c("\nTime start_time:", start_time)
 l2c("Time start_time_utc:", start_time_utc)
 l2c("Time range_periods:", range_periods)
 l2c("Time range_freq:", range_freq)
-l2f("message=Splunk_Downloader.py Time Parameters", \
-    " start_time=\"", start_time, "\"", \
-    " start_time_utc=\"", start_time_utc, "\"", \
-    " range_periods=\"", range_periods, "\"", \
-    " range_freq=\"", range_freq, "\"\n")
+l2f(f'message=Time Parameters" \
+    start_time="{start_time}" \
+    start_time_utc="{start_time_utc}" \
+    range_periods="{range_periods}" \
+    range_freq="{range_freq}"')
 
 # If vip_to_hostname is True
 # Set host to the actual name of the search head
@@ -257,14 +257,11 @@ def worker(dt):
 # Main Multiprocessing Loop with Timer
 #
 timer_start = time.time()
-
 result = Parallel(n_jobs=max_concurrent_jobs, prefer="threads")(delayed(worker)(dt) for dt in pd.date_range(start=start_time_utc, periods=range_periods, freq=range_freq))
-
 timer_end = time.time()
 
 total_runtime = round(timer_end - timer_start, 2)
 l2c('\nTotal Runtime:', total_runtime, "seconds")
 l2c('\n== Done ==')
-l2f("message=Splunk_Downloader.py Stopping", \
-    " total_runtime=\"", total_runtime, "\"")
+l2f(f'message=Stopping" total_runtime="{total_runtime}"')
 
