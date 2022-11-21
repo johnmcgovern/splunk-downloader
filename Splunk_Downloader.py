@@ -54,6 +54,7 @@ l2c("Flag write_to_local_file:", write_to_local_file)
 l2c("Flag log_to_console:", log_to_console)
 l2c("Flag log_to_file:", log_to_file)
 
+l2f(f'message="Starting Splunk_Downloader.py"')
 l2f(f'message="Initial Parameters" \
     aws_region_name="{aws_region_name}" \
     aws_s3_bucket="{aws_s3_bucket}" \
