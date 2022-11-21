@@ -219,8 +219,7 @@ def worker(dt):
         print('Results Parsing Error:', str(e))
         sys.exit(1)
     parse_timer = round(parse_timer_end - parse_timer_start, 2)
-    l2c("API Query: Downloaded and parsed query results. Timer:", parse_timer, "seconds")
-    l2c("API Query: raw_list length:", len(raw_list))
+    l2c("API Query: Downloaded and parsed query results. raw_list_len:", len(raw_list), "Timer:", parse_timer, "seconds")
     l2f(f'message="API Query: Downloaded and parsed query results." raw_list_len="{len(raw_list)}" parser_timer="{parse_timer}"')
 
     # Exit the script if there are no results returned
