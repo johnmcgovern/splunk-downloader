@@ -93,6 +93,7 @@ if write_to_s3:
 if splunk_api_token_raw != '':
     splunk_token = splunk_api_token_raw
     l2c("API Token: Using raw (plain text) API token")
+    l2f(f'message="Using raw (plain text) API token"')
 
 if splunk_api_token_raw == '':
     aws_ssm = boto3.Session(region_name=aws_region_name)
@@ -100,6 +101,7 @@ if splunk_api_token_raw == '':
     splunk_param = ssm.get_parameter(Name=splunk_api_token_ssm, WithDecryption=True)
     splunk_token = splunk_param['Parameter']['Value']
     l2c("\nAPI Token: Using API token retrieved from AWS SSM parameter:", splunk_api_token_ssm)
+    l2f(f'message="Using API token retrieved from AWS SSM parameter" ssm_param="{splunk_api_token_ssm}"')
 
 
 # Start time in both specific TZ and UTC
@@ -125,6 +127,7 @@ if vip_to_hostname:
         service = spclient.connect(host=splunk_host,port=splunk_port,token=splunk_token)
         splunk_host = service.info()['host']
         l2c("\nVIP to Host: Changed from", old_host, "to", splunk_host, "\n")
+        l2f(f'message="VIP to Host Mapping Complete" old_host="{old_host}" host="{splunk_host}"')
 
     except Exception as e:
         print('ERROR: Unable to derive search head hostname:', str(e))
@@ -132,6 +135,7 @@ if vip_to_hostname:
 
 if not vip_to_hostname:
     l2c("Hostname:", splunk_host, "\n")
+    l2f(f'message="Hostname left as original" old_host="" host="{splunk_host}"')
 
 
 # Open Splunk API session
@@ -141,6 +145,8 @@ except Exception as e:
     print('ERROR: Unable to connect to Splunk host:', str(e))
     sys.exit(1)
 l2c("Splunk Session: Opened Splunk API session\n")
+l2f(f'message="Opened Splunk API session"')
+
 
 
 # Worker function for multi-processing purposes.
@@ -173,9 +179,13 @@ def worker(dt):
     l2c("Time Earliest:", earliest)
     l2c("Time Latest:", latest)
     l2c("Time Range:", dt,ts, key)
+    l2f(f'message="Time Parameters" start_time_region="{start_time_region}" et="{earliest}" \
+        lt="{latest}" range_periods="{range_periods}" range_freq="{range_freq}"')
 
 
     # Splunk API Query Export Call
+    l2c("API Query: Initial Splunk API call (/search/jobs/export) started.")
+    l2f(f'message="API Query: Initial Splunk API call (/search/jobs/export) started"')
     try:
         api_timer_start = time.time()
         rr = service.jobs.export(
@@ -193,38 +203,45 @@ def worker(dt):
     except Exception as e:
         print('Splunk API Export Error:', str(e))
         sys.exit(1)
-    l2c("API Query: Initial Splunk API call (/search/jobs/export) complete. Timer:", round(api_timer_end - api_timer_start, 2), "seconds")
-
+    api_timer = round(api_timer_end - api_timer_start, 2)
+    l2c("API Query: Initial Splunk API call (/search/jobs/export) complete. Timer:", api_timer, "seconds")
+    l2f(f'message="API Query: Initial Splunk API call (/search/jobs/export) complete" api_timer="{api_timer}"')
 
     # Read & Parse Search Results from Splunk API
     try:
         parse_timer_start = time.time()
         l2c("API Query: Starting results download.")
+        l2f(f'"API Query: Starting results download."')
         raw_list = [json.loads(r) for r in rr.read().decode('utf-8').strip().split('\n')]
         parse_timer_end = time.time()
     except Exception as e:
         print('Results Parsing Error:', str(e))
         sys.exit(1)
-    l2c("API Query: Downloaded and parsed query results. Timer:", round(parse_timer_end - parse_timer_start, 2), "seconds")
+    parse_timer = round(parse_timer_end - parse_timer_start, 2)
+    l2c("API Query: Downloaded and parsed query results. Timer:", parse_timer, "seconds")
     l2c("API Query: raw_list length:", len(raw_list))
+    l2f(f'message="API Query: Downloaded and parsed query results." raw_list_len="{len(raw_list)}" parser_timer="{parse_timer}"')
 
     # Exit the script if there are no results returned
     if len(raw_list) <= 1:
         print("API Query: Query returned no results. Exiting.")
+        l2f(f'message="API Query: Query returned no results. Exiting"')
         sys.exit(1)
 
     # Store the search results in a pandas data frame (2D size-mutable table)
     pandas_timer_start = time.time()
     df = pd.DataFrame([r['result'] for r in raw_list if r['preview']==False])
     # "Return a tuple representing the dimensionality of the DataFrame."
-    l2c('Data Frame Dimensions:',df.shape)
+    l2c('DataFrame Dimensions:',df.shape)
+    l2f(f'messgae="DataFrame Dimensions" df_shape="{df.shape}"')
 
     # Initialize empty StringIO object and store dataframe as JSON object in it.
     json_buffer = StringIO()
     df.to_json(json_buffer)
     pandas_timer_end = time.time()
-    l2c("DF -> Buffer: Wrote DataFrame to JSON buffer for output.", round(pandas_timer_end - pandas_timer_start, 2), "seconds")
-
+    pandas_timer = round(pandas_timer_end - pandas_timer_start, 2)
+    l2c("DF -> Buffer: Wrote DataFrame to JSON buffer for output.", pandas_timer, "seconds")
+    l2f(f'message="DF -> Buffer: Wrote DataFrame to JSON buffer for output" pandas_timer="{pandas_timer}"')
 
     # Store the StringIO file ojbect to the local file system.
     if write_to_local_file:
@@ -234,12 +251,15 @@ def worker(dt):
         output_file = Path(local_file_path)
 
         l2c("Local File: Writing file to:", local_file_path)
+        l2f(f'message="Local File: Writing file to disk" local_file_path="{local_file_path}"')
 
         output_file.parent.mkdir(exist_ok=True, parents=True)
         output_file.write_text(json_buffer.getvalue())
 
-        l2c("Local File: Write completed. Size:", round(os.path.getsize(local_file_path)/1024/1024,2), "MB")
-    
+        local_file_size = round(os.path.getsize(local_file_path)/1024/1024,2)
+        l2c("Local File: Write completed. Size:", local_file_size, "MB")
+        l2f(f'message="Local File: Write completed." local_file_size="{local_file_size}"')
+
 
     # Store the StringIO file ojbect in S3.
     if write_to_s3: 
@@ -248,9 +268,12 @@ def worker(dt):
             s3_resource.Object(aws_s3_bucket, key).put(Body=json_buffer.getvalue())
 
         l2c("Wrote to S3:", "Bucket-", aws_s3_bucket, "Key-", key)
+        l2f(f'message="Wrote to S3" aws_s3_bucket="{aws_s3_bucket}" aws_s3_key="{key}"')
 
     print("Job Complete:", dt, df.shape)
     l2c("---\n")
+    l2f(f'message="Job Completed" dt="{dt}" df_shape="{df.shape}"')
+
 
 
 # 
@@ -263,5 +286,5 @@ timer_end = time.time()
 total_runtime = round(timer_end - timer_start, 2)
 l2c('\nTotal Runtime:', total_runtime, "seconds")
 l2c('\n== Done ==')
-l2f(f'message=Stopping" total_runtime="{total_runtime}"')
+l2f(f'message=Stopped" total_runtime="{total_runtime}"')
 
