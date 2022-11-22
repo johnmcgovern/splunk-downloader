@@ -158,7 +158,7 @@ data/*
 !data/README.md
 logs/*
 !logs/README.md
-Splunk_Downloader_2.py
+Splunk_Downloader_*.py
 splunk_node_lookup.py
 test.py
 .DS_Store

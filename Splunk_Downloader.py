@@ -189,17 +189,17 @@ def worker(dt):
     l2f(f'message="API Query: Initial Splunk API call (/search/jobs/export) started"')
     try:
         api_timer_start = time.time()
-        rr = service.jobs.export(
-            query=splunk_query, 
-            earliest_time=earliest, 
-            latest_time=latest, 
-            output_mode="json", 
-            sample_ratio=sample_ratio, 
-            count=0, 
-            max_count=123456789,
-            timeout=86400,
-            adhoc_search_level="smart",
-            )
+        kwargs_export = {
+            "earliest_time": earliest, 
+            "latest_time": latest, 
+            "output_mode": "json", 
+            "sample_ratio": sample_ratio, 
+            "count": 0, 
+            "max_count": 123456789,
+            "timeout": 86400,
+            "adhoc_search_level": "smart"
+        }
+        rr = service.jobs.export(splunk_query, **kwargs_export)
         api_timer_end = time.time()
     except Exception as e:
         print('Splunk API Export Error:', str(e))
