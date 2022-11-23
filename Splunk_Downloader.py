@@ -30,15 +30,16 @@ def l2c(*args):
 if log_to_file:
     home_path = os.path.dirname(os.path.abspath(__file__))
     log_file_path = home_path + "/logs/Splunk_Downloader_" + str(time.time()) + ".log"
-    file_writer = open(log_file_path, "a")
 
 # Wrapper function for local file logging
 def l2f(*args):
     if log_to_file:
+        file_writer = open(log_file_path, "a")
         log_file_text = str(time.time()) + " "
         for arg in args:
             log_file_text += " ".join(str(arg).split()) + "\n" 
         file_writer.write(log_file_text)
+        file_writer.close()
 
 
 # Print initial config variables
